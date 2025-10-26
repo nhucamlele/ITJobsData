@@ -16,14 +16,15 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 10
+MAX_JOBS = 100
 PAGE_LOAD_DELAY = 3
 SHOWMORE_WAIT = 3
 DETAIL_PAGE_INITIAL_WAIT = 2
 DETAIL_PAGE_EXTRA_WAIT = 2
 RETRY_DETAIL = 2
-SAVE_PATH = r"D:\projects\ITJobsData\itjobs_data.json"
-SAVE_EVERY = 100
+
+# ⚠️ Lưu file JSON TRONG repo (để git push được)
+SAVE_PATH = os.path.join(os.path.dirname(__file__), "itjobs_data.json")
 
 # =========================================
 # 🚀 Khởi tạo driver
@@ -54,11 +55,11 @@ def safe_get_text(driver, by, selector, timeout=5):
 # =========================================
 # 📜 Cào danh sách URL job
 # =========================================
-def get_job_urls(driver, url, max_jobs=MAX_JOBS):
+def get_job_urls(driver, url, old_urls, max_jobs=MAX_JOBS):
     driver.get(url)
     time.sleep(PAGE_LOAD_DELAY)
 
-    total_urls = set()
+    total_urls = []
     last_count = 0
     same_count_retries = 0
 
@@ -79,8 +80,13 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
         jobs = driver.find_elements(By.CSS_SELECTOR, "a.jp_job_post_link")
         for j in jobs:
             href = j.get_attribute("href")
-            if href:
-                total_urls.add(href if href.startswith("http") else BASE_URL + href)
+            if href and href not in total_urls:
+                full_url = href if href.startswith("http") else BASE_URL + href
+                # ⚡ Dừng sớm nếu gặp job cũ đầu tiên
+                if full_url in old_urls:
+                    print("⛔ Gặp job cũ, dừng quét danh sách.")
+                    return total_urls
+                total_urls.append(full_url)
 
         print(f"🔹 Đã lấy {len(total_urls)} job...")
 
@@ -97,7 +103,7 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
             break
         last_count = len(total_urls)
 
-    return list(total_urls)
+    return total_urls
 
 # =========================================
 # 🧾 Cào chi tiết job
@@ -165,7 +171,7 @@ def save_or_update_json(new_data, file_path=SAVE_PATH):
 
     if not fresh_data:
         print("✅ Không có job mới để thêm.")
-        return
+        return old_data
 
     print(f"🆕 Phát hiện {len(fresh_data)} job mới → thêm lên đầu file cũ...")
     updated = fresh_data + old_data
@@ -174,6 +180,7 @@ def save_or_update_json(new_data, file_path=SAVE_PATH):
         json.dump(updated, f, ensure_ascii=False, indent=2)
 
     print(f"💾 Đã cập nhật {file_path}: tổng {len(updated)} job.")
+    return updated
 
 # =========================================
 # 🧠 MAIN
@@ -181,9 +188,22 @@ def save_or_update_json(new_data, file_path=SAVE_PATH):
 def main():
     driver = init_uc_driver(headless=False)
     try:
-        print("🔹 Đang lấy danh sách job...")
-        job_urls = get_job_urls(driver, START_URL, max_jobs=MAX_JOBS)
-        print(f"📊 Tổng cộng: {len(job_urls)} job URL")
+        # Tải danh sách job cũ
+        old_urls = set()
+        if os.path.exists(SAVE_PATH):
+            with open(SAVE_PATH, "r", encoding="utf-8") as f:
+                try:
+                    old_data = json.load(f)
+                    old_urls = {item.get("Url") for item in old_data if item.get("Url")}
+                    print(f"📂 Đã tải {len(old_urls)} job cũ.")
+                except:
+                    print("⚠️ File cũ lỗi định dạng, bỏ qua.")
+        else:
+            print("🆕 Không có file cũ, sẽ cào toàn bộ.")
+
+        print("🔹 Đang lấy danh sách job mới...")
+        job_urls = get_job_urls(driver, START_URL, old_urls, max_jobs=MAX_JOBS)
+        print(f"📊 Tổng cộng {len(job_urls)} job URL mới.")
 
         new_jobs = []
         for idx, job_url in enumerate(job_urls):
@@ -195,6 +215,7 @@ def main():
             save_or_update_json(new_jobs)
 
         print("✅ Hoàn tất cào dữ liệu ITJobs!")
+
     finally:
         driver.quit()
 
@@ -202,10 +223,8 @@ def main():
     # 🚀 GỬI LÊN GITHUB
     # =========================================
     repo_path = os.path.dirname(os.path.abspath(__file__))
-
     print("\n🚀 Đang cập nhật GitHub...")
-    subprocess.run(["git", "add", SAVE_PATH], cwd=repo_path)
-    subprocess.run(["git", "add", "itjobs_scraper.py"], cwd=repo_path)
+    subprocess.run(["git", "add", "."], cwd=repo_path)
     subprocess.run(["git", "commit", "-m", "auto update ITJobs data and scraper"], cwd=repo_path)
     subprocess.run(["git", "push", "origin", "main"], cwd=repo_path)
     print("✅ Hoàn tất cập nhật GitHub.")
