@@ -16,7 +16,7 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 20
+MAX_JOBS = 10
 PAGE_LOAD_DELAY = 3
 SHOWMORE_WAIT = 3
 DETAIL_PAGE_INITIAL_WAIT = 2
@@ -201,12 +201,14 @@ def main():
     # =========================================
     # 🚀 GỬI LÊN GITHUB
     # =========================================
+    repo_path = os.path.dirname(os.path.abspath(__file__))
+
     print("\n🚀 Đang cập nhật GitHub...")
-    subprocess.run(["git", "add", SAVE_PATH])
-    subprocess.run(["git", "add", "itjobs_scraper.py"])
-    subprocess.run(["git", "commit", "-m", "Auto update ITJobs data and scraper"])
-    subprocess.run(["git", "push", "origin", "main"])
-    print("✅ Đã cập nhật GitHub thành công!")
+    subprocess.run(["git", "add", SAVE_PATH], cwd=repo_path)
+    subprocess.run(["git", "add", "itjobs_scraper.py"], cwd=repo_path)
+    subprocess.run(["git", "commit", "-m", "auto update ITJobs data and scraper"], cwd=repo_path)
+    subprocess.run(["git", "push", "origin", "main"], cwd=repo_path)
+    print("✅ Hoàn tất cập nhật GitHub.")
 
 if __name__ == "__main__":
     main()
