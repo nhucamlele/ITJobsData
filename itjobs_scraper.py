@@ -16,14 +16,14 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 50
+MAX_JOBS = 20          # số job tối đa muốn cào
 PAGE_LOAD_DELAY = 3
-SHOWMORE_WAIT = 3
+SHOWMORE_WAIT = 4
 DETAIL_PAGE_INITIAL_WAIT = 2
 DETAIL_PAGE_EXTRA_WAIT = 2
 RETRY_DETAIL = 2
-SAVE_PATH = "data/itjobs_data.json"
-SAVE_EVERY = 100
+SAVE_PATH = "itjobs_data.json"
+SAVE_EVERY = 10
 
 # =========================================
 # 🚀 Khởi tạo driver
@@ -63,7 +63,8 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
     same_count_retries = 0
 
     while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        # Cuộn chậm để load thêm job
+        driver.execute_script("window.scrollBy(0, 800);")
         time.sleep(2)
 
         try:
@@ -71,7 +72,8 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
                 EC.element_to_be_clickable((By.ID, "btnShowMoreJob"))
             )
             driver.execute_script("arguments[0].click();", show_more_btn)
-            time.sleep(3)
+            print("🟢 Clicked 'SHOW MORE' để tải thêm job...")
+            time.sleep(4)
         except:
             print("⚠️ Hết nút 'SHOW MORE' hoặc lỗi click → dừng.")
             break
@@ -144,29 +146,43 @@ def scrape_job_details(driver, job_url):
     return data
 
 # =========================================
-# 💾 Lưu dữ liệu (thêm vào đầu file cũ)
+# 💾 LƯU / CẬP NHẬT FILE JSON
 # =========================================
-def save_to_json(new_jobs):
-    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
-    old_jobs = []
-    if os.path.exists(SAVE_PATH):
+def save_or_update_json(new_data, file_path=SAVE_PATH):
+    """Gộp dữ liệu mới vào file JSON hiện có."""
+    if os.path.exists(file_path):
         try:
-            with open(SAVE_PATH, "r", encoding="utf-8") as f:
-                old_jobs = json.load(f)
-        except:
-            pass
-    # thêm job mới vào đầu
-    all_jobs = new_jobs + old_jobs
-    with open(SAVE_PATH, "w", encoding="utf-8") as f:
-        json.dump(all_jobs, f, ensure_ascii=False, indent=2)
-    print(f"💾 Đã lưu {len(new_jobs)} job mới (tổng {len(all_jobs)} job) → {SAVE_PATH}")
+            with open(file_path, encoding="utf-8") as f:
+                old_data = json.load(f)
+                if not isinstance(old_data, list):
+                    old_data = []
+        except Exception as e:
+            print("⚠️ Không đọc được file cũ, sẽ tạo mới:", e)
+            old_data = []
+    else:
+        old_data = []
+
+    old_urls = {item.get("Url") for item in old_data if isinstance(item, dict) and item.get("Url")}
+    fresh_data = [job for job in new_data if job.get("Url") not in old_urls]
+
+    if not fresh_data:
+        print("✅ Không có job mới để thêm.")
+        return
+
+    print(f"🆕 Phát hiện {len(fresh_data)} job mới → thêm lên đầu file cũ...")
+    updated = fresh_data + old_data
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(updated, f, ensure_ascii=False, indent=2)
+
+    print(f"💾 Đã cập nhật {file_path}: tổng {len(updated)} job.")
 
 # =========================================
 # 🔁 Tự động commit & push lên GitHub
 # =========================================
 def git_push():
     try:
-        subprocess.run("git add data/*.json", shell=True)
+        subprocess.run("git add itjobs_data.json", shell=True)
         subprocess.run('git commit -m "Auto update ITJobs data"', shell=True)
         subprocess.run("git push origin main", shell=True)
         print("🚀 Đã đẩy dữ liệu mới lên GitHub.")
@@ -188,12 +204,13 @@ def main():
             print(f"➡️ [{idx+1}/{len(job_urls)}] {job_url}")
             job_data = scrape_job_details(driver, job_url)
             new_jobs.append(job_data)
+
             if (idx + 1) % SAVE_EVERY == 0:
-                save_to_json(new_jobs)
+                save_or_update_json(new_jobs)
                 new_jobs = []
 
         if new_jobs:
-            save_to_json(new_jobs)
+            save_or_update_json(new_jobs)
             git_push()
 
         print("✅ Hoàn tất cào dữ liệu ITJobs!")
