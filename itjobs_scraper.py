@@ -16,11 +16,14 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 10  # 👈 đổi số lượng job muốn cào
+MAX_JOBS = 20
 PAGE_LOAD_DELAY = 3
 SHOWMORE_WAIT = 3
 DETAIL_PAGE_INITIAL_WAIT = 2
-SAVE_PATH = "itjobs_data.json"
+DETAIL_PAGE_EXTRA_WAIT = 2
+RETRY_DETAIL = 2
+SAVE_PATH = r"D:\projects\ITJobsData\itjobs_data.json"
+SAVE_EVERY = 100
 
 # =========================================
 # 🚀 Khởi tạo driver
@@ -141,7 +144,7 @@ def scrape_job_details(driver, job_url):
     return data
 
 # =========================================
-# 💾 Lưu hoặc cập nhật file JSON
+# 💾 Lưu / Gộp file JSON
 # =========================================
 def save_or_update_json(new_data, file_path=SAVE_PATH):
     """Gộp dữ liệu mới vào file JSON hiện có."""
@@ -173,19 +176,6 @@ def save_or_update_json(new_data, file_path=SAVE_PATH):
     print(f"💾 Đã cập nhật {file_path}: tổng {len(updated)} job.")
 
 # =========================================
-# 🔁 Git push tự động
-# =========================================
-def git_push():
-    try:
-        subprocess.run("git add *.json", shell=True)
-        subprocess.run("git add *.py", shell=True)
-        subprocess.run('git commit -m "Auto update ITJobs data"', shell=True)
-        subprocess.run("git push origin main", shell=True)
-        print("🚀 Đã đẩy dữ liệu mới lên GitHub.")
-    except Exception as e:
-        print(f"⚠️ Lỗi khi push Git: {e}")
-
-# =========================================
 # 🧠 MAIN
 # =========================================
 def main():
@@ -203,11 +193,20 @@ def main():
 
         if new_jobs:
             save_or_update_json(new_jobs)
-            git_push()
 
         print("✅ Hoàn tất cào dữ liệu ITJobs!")
     finally:
         driver.quit()
+
+    # =========================================
+    # 🚀 GỬI LÊN GITHUB
+    # =========================================
+    print("\n🚀 Đang cập nhật GitHub...")
+    subprocess.run(["git", "add", SAVE_PATH])
+    subprocess.run(["git", "add", "itjobs_scraper.py"])
+    subprocess.run(["git", "commit", "-m", "Auto update ITJobs data and scraper"])
+    subprocess.run(["git", "push", "origin", "main"])
+    print("✅ Đã cập nhật GitHub thành công!")
 
 if __name__ == "__main__":
     main()
