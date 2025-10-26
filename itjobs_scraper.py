@@ -16,14 +16,11 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 20          # số job tối đa muốn cào
+MAX_JOBS = 10  # 👈 đổi số lượng job muốn cào
 PAGE_LOAD_DELAY = 3
-SHOWMORE_WAIT = 4
+SHOWMORE_WAIT = 3
 DETAIL_PAGE_INITIAL_WAIT = 2
-DETAIL_PAGE_EXTRA_WAIT = 2
-RETRY_DETAIL = 2
 SAVE_PATH = "itjobs_data.json"
-SAVE_EVERY = 10
 
 # =========================================
 # 🚀 Khởi tạo driver
@@ -63,8 +60,7 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
     same_count_retries = 0
 
     while True:
-        # Cuộn chậm để load thêm job
-        driver.execute_script("window.scrollBy(0, 800);")
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)
 
         try:
@@ -72,8 +68,7 @@ def get_job_urls(driver, url, max_jobs=MAX_JOBS):
                 EC.element_to_be_clickable((By.ID, "btnShowMoreJob"))
             )
             driver.execute_script("arguments[0].click();", show_more_btn)
-            print("🟢 Clicked 'SHOW MORE' để tải thêm job...")
-            time.sleep(4)
+            time.sleep(3)
         except:
             print("⚠️ Hết nút 'SHOW MORE' hoặc lỗi click → dừng.")
             break
@@ -146,7 +141,7 @@ def scrape_job_details(driver, job_url):
     return data
 
 # =========================================
-# 💾 LƯU / CẬP NHẬT FILE JSON
+# 💾 Lưu hoặc cập nhật file JSON
 # =========================================
 def save_or_update_json(new_data, file_path=SAVE_PATH):
     """Gộp dữ liệu mới vào file JSON hiện có."""
@@ -178,11 +173,12 @@ def save_or_update_json(new_data, file_path=SAVE_PATH):
     print(f"💾 Đã cập nhật {file_path}: tổng {len(updated)} job.")
 
 # =========================================
-# 🔁 Tự động commit & push lên GitHub
+# 🔁 Git push tự động
 # =========================================
 def git_push():
     try:
-        subprocess.run("git add itjobs_data.json", shell=True)
+        subprocess.run("git add *.json", shell=True)
+        subprocess.run("git add *.py", shell=True)
         subprocess.run('git commit -m "Auto update ITJobs data"', shell=True)
         subprocess.run("git push origin main", shell=True)
         print("🚀 Đã đẩy dữ liệu mới lên GitHub.")
@@ -204,10 +200,6 @@ def main():
             print(f"➡️ [{idx+1}/{len(job_urls)}] {job_url}")
             job_data = scrape_job_details(driver, job_url)
             new_jobs.append(job_data)
-
-            if (idx + 1) % SAVE_EVERY == 0:
-                save_or_update_json(new_jobs)
-                new_jobs = []
 
         if new_jobs:
             save_or_update_json(new_jobs)
