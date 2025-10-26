@@ -16,7 +16,7 @@ START_URL = "https://www.itjobs.com.vn/en"
 # =========================================
 # ⚙️ Tham số cào
 # =========================================
-MAX_JOBS = 500
+MAX_JOBS = 1000
 PAGE_LOAD_DELAY = 3
 SHOWMORE_WAIT = 3
 DETAIL_PAGE_INITIAL_WAIT = 2
